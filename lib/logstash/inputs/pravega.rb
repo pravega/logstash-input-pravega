@@ -7,7 +7,6 @@ require "java"
 require "client"
 require "common"
 require "contract"
-require "service"
 
 class LogStash::Inputs::Pravega < LogStash::Inputs::Base
   config_name "pravega"
@@ -18,13 +17,15 @@ class LogStash::Inputs::Pravega < LogStash::Inputs::Base
 
   config :stream_name, :validate => :string, :require => true
 
-  config :scope, :validate => :string, :default => "seattle"
+  config :scope, :validate => :string, :default => "global"
 
-  config :group_name, :validate => :string, :default => "default_group"
+  config :reader_group_name, :validate => :string, :default => "default_reader_group"
 
   config :consumer_threads, :validate => :number, :default => 1
 
-  config :consumer_uuid, :validate => :string, :default => SecureRandom.uuid
+  config :reader_id, :validate => :string, :default => SecureRandom.uuid
+
+  config :read_timeout_ms, :validate => :number, :default => 60000
   
   public
   def register
@@ -50,7 +51,7 @@ class LogStash::Inputs::Pravega < LogStash::Inputs::Base
     Thread.new do 
       begin
         while true do
-          data = consumer.readNextEvent(60000).getEvent()
+          data = consumer.readNextEvent(read_timeout_ms).getEvent()
           logger.debug("Receive event ", :streamName => @stream_name, :data => data)
           @codec.decode(data) do |event|
             decorate(event)
@@ -76,8 +77,8 @@ class LogStash::Inputs::Pravega < LogStash::Inputs::Base
       uri = java.net.URI.new(pravega_endpoint)
       clientFactory = ClientFactory.withScope(scope, uri)
       streamManager = StreamManager.withScope(scope, uri)
-      streamManager.createReaderGroup(group_name, ReaderGroupConfig.builder().startingPosition(Sequence::MIN_VALUE).build(), java.util.Collections.singletonList(stream_name))
-      reader = clientFactory.createReader(consumer_uuid, group_name, JavaSerializer.new(), ReaderConfig.new())
+      streamManager.createReaderGroup(reader_group_name, ReaderGroupConfig.builder().startingPosition(Sequence::MIN_VALUE).build(), java.util.Collections.singletonList(stream_name))
+      reader = clientFactory.createReader(reader_id, reader_group_name, JavaSerializer.new(), ReaderConfig.new())
       return reader
     end
   end
