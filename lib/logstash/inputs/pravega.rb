@@ -21,7 +21,7 @@ class LogStash::Inputs::Pravega < LogStash::Inputs::Base
 
   config :reader_group_name, :validate => :string, :default => "default_reader_group"
 
-  config :consumer_threads, :validate => :number, :default => 1
+  config :reader_threads, :validate => :number, :default => 1
 
   config :reader_id, :validate => :string, :default => SecureRandom.uuid
 
@@ -33,7 +33,7 @@ class LogStash::Inputs::Pravega < LogStash::Inputs::Base
   end # def register
 
   def run(logstash_queue)
-    @runner_consumers = consumer_threads.times.map { |i| create_consumer() }
+    @runner_consumers = reader_threads.times.map { |i| create_consumer() }
     @runner_threads = @runner_consumers.map { |consumer| thread_runner(logstash_queue, consumer) }
     @runner_threads.each{ |t| t.join }
   end # def run
