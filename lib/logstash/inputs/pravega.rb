@@ -3,16 +3,8 @@ require "logstash/inputs/base"
 require "logstash/namespace"
 require "stud/interval"
 require "java"
-# require pravega jar dependencies
-require "client"
-require "common"
-require "contract"
-# TODO: other pravega dependencies
-require "commons-lang-2.6"
-require "guava-16.0"
-require "libthrift-0.9.1"
-require "netty-all-4.0.36.Final"
-require "slf4j-api-1.7.14"
+
+require "pravega"
 
 class LogStash::Inputs::Pravega < LogStash::Inputs::Base
   config_name "pravega"
@@ -72,19 +64,23 @@ class LogStash::Inputs::Pravega < LogStash::Inputs::Base
   private
   def create_consumer()
     begin
-      java_import('com.emc.pravega.stream.EventStreamReader')
-      java_import('com.emc.pravega.StreamManager')
-      java_import('com.emc.pravega.ClientFactory')
-      java_import("com.emc.pravega.stream.EventStreamReader")
+      java_import('com.emc.pravega.ClientFactoryImpl')
       java_import("com.emc.pravega.stream.ReaderConfig")
       java_import("com.emc.pravega.stream.ReaderGroupConfig")
       java_import("com.emc.pravega.stream.impl.JavaSerializer")
       java_import("com.emc.pravega.stream.Sequence")
+      java_import("com.emc.pravega.stream.impl.netty.ConnectionFactoryImpl")
+      java_import("com.emc.pravega.stream.impl.ControllerImpl")
+      java_import("com.emc.pravega.stream.impl.ReaderGroupManagerImpl")
       uri = java.net.URI.new(pravega_endpoint)
-      clientFactory = ClientFactory.withScope(scope, uri)
-      streamManager = StreamManager.withScope(scope, uri)
-      streamManager.createReaderGroup(reader_group_name, ReaderGroupConfig.builder().startingPosition(Sequence::MIN_VALUE).build(), java.util.Collections.singletonList(stream_name))
-      reader = clientFactory.createReader(reader_id, reader_group_name, JavaSerializer.new(), ReaderConfig.new())
+      controller = ControllerImpl.new(uri.getHost(), uri.getPort())
+      connectionFactory = ConnectionFactoryImpl.new(false)
+      clientFactory = ClientFactoryImpl.new(scope, controller, connectionFactory)
+      readerGroupManager = new ReaderGroupManagerImpl.new(scope, uri)
+      groupConfig = ReaderGroupConfig.builder().startingPosition(Sequence.MIN_VALUE).build()
+      readerGroupManager.createReaderGroup(groupName, groupConfig, java.util.Collections.singleton(stream_name))
+      readerConfig = ReaderConfig.builder().build()
+      reader = clientFactory.createReader(reader_id, reader_group_name, JavaSerializer.new(), readerConfig)
       return reader
     end
   end
