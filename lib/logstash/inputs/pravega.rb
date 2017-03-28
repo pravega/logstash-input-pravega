@@ -51,6 +51,9 @@ class LogStash::Inputs::Pravega < LogStash::Inputs::Base
         while true do
           data = consumer.readNextEvent(read_timeout_ms).getEvent()
           logger.debug("Receive event ", :streamName => @stream_name, :data => data)
+          if data.to_s.empty?
+             next
+          end
           @codec.decode(data) do |event|
             decorate(event)
             event.set("streamName", @stream_name)
@@ -64,7 +67,7 @@ class LogStash::Inputs::Pravega < LogStash::Inputs::Base
   private
   def create_consumer()
     begin
-      java_import('com.emc.pravega.ClientFactoryImpl')
+      java_import('com.emc.pravega.stream.impl.ClientFactoryImpl')
       java_import("com.emc.pravega.stream.ReaderConfig")
       java_import("com.emc.pravega.stream.ReaderGroupConfig")
       java_import("com.emc.pravega.stream.impl.JavaSerializer")
@@ -76,11 +79,12 @@ class LogStash::Inputs::Pravega < LogStash::Inputs::Base
       controller = ControllerImpl.new(uri.getHost(), uri.getPort())
       connectionFactory = ConnectionFactoryImpl.new(false)
       clientFactory = ClientFactoryImpl.new(scope, controller, connectionFactory)
-      readerGroupManager = new ReaderGroupManagerImpl.new(scope, uri)
-      groupConfig = ReaderGroupConfig.builder().startingPosition(Sequence.MIN_VALUE).build()
+      readerGroupManager = ReaderGroupManagerImpl.new(scope, uri)
+      groupName = SecureRandom.uuid.gsub('-', '')
+      groupConfig = ReaderGroupConfig.builder().startingPosition(Sequence::MIN_VALUE).build()
       readerGroupManager.createReaderGroup(groupName, groupConfig, java.util.Collections.singleton(stream_name))
       readerConfig = ReaderConfig.builder().build()
-      reader = clientFactory.createReader(reader_id, reader_group_name, JavaSerializer.new(), readerConfig)
+      reader = clientFactory.createReader(SecureRandom.uuid, groupName, JavaSerializer.new(), readerConfig)
       return reader
     end
   end
