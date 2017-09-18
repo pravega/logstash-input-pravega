@@ -3,8 +3,7 @@ require "logstash/inputs/base"
 require "logstash/namespace"
 require "stud/interval"
 require "java"
-
-require "pravega"
+require "logstash-input-pravega_jars.rb"
 
 class LogStash::Inputs::Pravega < LogStash::Inputs::Base
   config_name "pravega"
