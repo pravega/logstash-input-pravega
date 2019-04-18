@@ -1,22 +1,22 @@
 Gem::Specification.new do |s|
   s.name          = 'logstash-input-pravega'
-  s.version       = '0.2.0'
+  s.version       = '0.4.0'
   s.licenses      = ['Apache License (2.0)']
   s.summary       = 'This input will read events from a Pravega stream.'
   s.description   = 'This gem is a Logstash plugin required to be installed on top of the Logstash core pipeline using $LS_HOME/bin/logstash-plugin install gemname. This gem is not a stand-alone program'
-  s.authors       = ['Ben Wang', 'Tony Li']
+  s.authors       = ['Ben Wang', 'Tony Li', 'Lingling.Yao']
   s.email         = 'ben.wang@emc.com'
   s.require_paths = ['lib']
 
   # Files
-  s.files = Dir["lib/**/*.rb","spec/**/*","*.gemspec","*.md","CONTRIBUTORS","Gemfile","LICENSE","NOTICE.TXT", "vendor/jar-dependencies/**/*.jar", "vendor/jar-dependencies/**/*.rb"]
+  s.files = Dir["lib/**/*.rb","spec/**/*","*.gemspec","*.md","CONTRIBUTORS","Gemfile","LICENSE","NOTICE.TXT","vendor/jar-dependencies/**/*", "*.yml"]
   # Tests
   s.test_files = s.files.grep(%r{^(test|spec|features)/})
 
   # Special flag to let us know this is actually a logstash plugin
   s.metadata = { "logstash_plugin" => "true", "logstash_group" => "input" }
 
-  s.requirements << "jar 'io.pravega:pravega-client', '0.1.0-SNAPSHOT'"
+  s.requirements << "jar 'io.pravega:pravega-client', '0.4.0'"
 
   # Gem dependencies
   s.add_runtime_dependency "logstash-core-plugin-api", ">= 1.60", "<= 2.99"

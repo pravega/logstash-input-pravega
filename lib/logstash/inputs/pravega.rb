@@ -4,11 +4,12 @@ require "logstash/namespace"
 require "stud/interval"
 require "java"
 require "logstash-input-pravega_jars.rb"
+require "yaml"
 
 class LogStash::Inputs::Pravega < LogStash::Inputs::Base
   config_name "pravega"
 
-  default :codec, "json"
+  default :codec, "plain"
   
   config :pravega_endpoint, :validate => :string, :require => true
 
@@ -16,31 +17,35 @@ class LogStash::Inputs::Pravega < LogStash::Inputs::Base
 
   config :scope, :validate => :string, :default => "global"
 
-  config :reader_group_name, :validate => :string, :default => "default_reader_group"
-
-  config :reader_threads, :validate => :number, :default => 1
-
-  config :reader_id, :validate => :string, :default => SecureRandom.uuid
-
   config :read_timeout_ms, :validate => :number, :default => 60000
   
+  config :username, :validate => :string, :default => ""
+
+  config :password, :validate => :string, :default => ""
+
   public
   def register
-    @runner_threads = []
+    create_readerGroup()
+    @inputs = YAML.load(File.open($root_dir + "/config.yml"))
+    @reader_threads = @inputs['readers_thread']
+    @min_read_timeout_ms = @inputs['min_read_timeout_ms']
   end # def register
 
   def run(logstash_queue)
-    @runner_consumers = reader_threads.times.map { |i| create_consumer() }
+    # The pravega server will set the stream read timeout witn min(read_time_ms, 1000ms)
+    # If the read_time_out is less than zero, it will throw the error. The logstash won't work.
+    @read_timeout_ms = @min_read_timeout_ms if @read_timeout_ms < @min_read_timeout_ms
+    logger.debug("The prechecked arguments: ", :reader_threads => @reader_threads, :read_timeout_ms => @read_timeout_ms)
+
+    # To make the new created readers read data from segment in time, need to make the old readers offline
+    @readerGroupManager.getReaderGroup(@groupName).getOnlineReaders().map { |reader| reader.close()}
+    @runner_consumers = @reader_threads.times.map { |i| create_consumer() }
     @runner_threads = @runner_consumers.map { |consumer| thread_runner(logstash_queue, consumer) }
     @runner_threads.each{ |t| t.join }
   end # def run
 
   def stop
-  end
-
-  public
-  def pravega_consumers
-    @runner_consumers
+    @runner_consumers.times.map { |consumer| consumer.close()}
   end
 
   private
@@ -48,7 +53,7 @@ class LogStash::Inputs::Pravega < LogStash::Inputs::Base
     Thread.new do 
       begin
         while true do
-          data = consumer.readNextEvent(read_timeout_ms).getEvent()
+          data = consumer.readNextEvent(@read_timeout_ms).getEvent()
           logger.debug("Receive event ", :streamName => @stream_name, :data => data)
           if data.to_s.empty?
              next
@@ -66,34 +71,42 @@ class LogStash::Inputs::Pravega < LogStash::Inputs::Base
   private
   def create_consumer()
     begin
-        java_import("io.pravega.client.admin.StreamManager")
-        java_import("io.pravega.client.admin.impl.StreamManagerImpl")
-        java_import("io.pravega.client.stream.impl.Controller")
-        java_import("io.pravega.client.stream.impl.ControllerImpl")
-        java_import("io.pravega.client.stream.ScalingPolicy")
-        java_import("io.pravega.client.stream.StreamConfiguration")
-        java_import("io.pravega.client.stream.ReaderGroupConfig")
-        java_import("io.pravega.client.admin.ReaderGroupManager")
-        java_import("io.pravega.client.admin.impl.ReaderGroupManagerImpl")
-        java_import("io.pravega.client.ClientFactory")
-        java_import("io.pravega.client.stream.ReaderConfig")
-        java_import("io.pravega.client.stream.Sequence")
-        java_import("io.pravega.client.stream.impl.JavaSerializer")
-	  
-        uri = java.net.URI.new(pravega_endpoint)
-        streamManager = StreamManager.create(uri)
-        streamManager.createScope(scope)
-        policy = ScalingPolicy.fixed(1)
-        streamConfig = StreamConfiguration.builder().scalingPolicy(policy).build()
-        streamManager.createStream(scope, stream_name, streamConfig)
-        groupName = SecureRandom.uuid.gsub('-', '')
-        readGroupConfig = ReaderGroupConfig.builder().startingPosition(Sequence::MIN_VALUE).build()
-        readerGroupManager = ReaderGroupManager.withScope(scope,uri)
-        readerGroupManager.createReaderGroup(groupName, readGroupConfig,java.util.Collections.singleton(stream_name))
-        clientFactory = ClientFactory.withScope(scope,uri)
-        readerConfig = ReaderConfig.builder().build()
-        reader = clientFactory.createReader(SecureRandom.uuid, groupName, JavaSerializer.new(), readerConfig)
-        return reader
+      java_import("io.pravega.client.ClientFactory")
+      java_import("io.pravega.client.stream.ReaderConfig")
+      java_import("io.pravega.client.stream.impl.JavaSerializer")
+
+      clientFactory = ClientFactory.withScope(scope, @uri)
+      return clientFactory.createReader(SecureRandom.uuid,
+					@groupName,
+					JavaSerializer.new(),
+					ReaderConfig.builder().build())
+    end
+  end
+
+  private
+  def create_readerGroup()
+    begin
+      java_import("io.pravega.client.ClientConfig")
+      java_import("io.pravega.client.stream.impl.DefaultCredentials")
+      java_import("io.pravega.client.admin.StreamManager")
+      java_import("io.pravega.client.stream.StreamConfiguration")
+      java_import("io.pravega.client.stream.ReaderGroupConfig")
+      java_import("io.pravega.client.admin.ReaderGroupManager")
+      java_import("io.pravega.client.stream.Stream")
+
+      @uri = java.net.URI.new(pravega_endpoint)
+      clientConfig = ClientConfig.builder()
+                                 .controllerURI(@uri)
+                                 .credentials(DefaultCredentials.new(password, username))
+                                 .validateHostName(false)
+                                 .build()
+      streamManager = StreamManager.create(clientConfig)
+      streamManager.createScope(scope)
+      streamManager.createStream(scope, stream_name, StreamConfiguration.builder().build())
+      readGroupConfig = ReaderGroupConfig.builder().stream(Stream.of(scope, stream_name)).build()
+      @readerGroupManager = ReaderGroupManager.withScope(scope, @uri)
+      @groupName = SecureRandom.uuid.gsub('-', '')
+      @readerGroupManager.createReaderGroup(@groupName, readGroupConfig)
     end
   end
 end # class LogStash::Inputs::Pravega
