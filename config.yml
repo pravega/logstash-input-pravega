@@ -1,0 +1,4 @@
+# config constants for the input plugin
+
+readers_thread: 3
+min_read_timeout_ms: 1000
