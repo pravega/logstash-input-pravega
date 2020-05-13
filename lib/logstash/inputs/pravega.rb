@@ -71,11 +71,11 @@ class LogStash::Inputs::Pravega < LogStash::Inputs::Base
   private
   def create_consumer()
     begin
-      java_import("io.pravega.client.ClientFactory")
+      java_import("io.pravega.client.EventStreamClientFactory")
       java_import("io.pravega.client.stream.ReaderConfig")
       java_import("io.pravega.client.stream.impl.JavaSerializer")
 
-      clientFactory = ClientFactory.withScope(scope, @uri)
+      clientFactory = EventStreamClientFactory.withScope(scope, ClientConfig.builder().controllerURI(@uri).build())
       return clientFactory.createReader(SecureRandom.uuid,
 					@groupName,
 					JavaSerializer.new(),
