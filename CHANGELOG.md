@@ -1,3 +1,6 @@
+## 0.8.0
+- Switch the version of pravega-client API to 0.8.0
+
 ## 0.7.0
 - Switch the version of pravega-client API to 0.7.0
 
