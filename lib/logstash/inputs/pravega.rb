@@ -73,12 +73,12 @@ class LogStash::Inputs::Pravega < LogStash::Inputs::Base
     begin
       java_import("io.pravega.client.EventStreamClientFactory")
       java_import("io.pravega.client.stream.ReaderConfig")
-      java_import("io.pravega.client.stream.impl.JavaSerializer")
+      java_import("io.pravega.client.stream.impl.UTF8StringSerializer")
 
       clientFactory = EventStreamClientFactory.withScope(scope, ClientConfig.builder().controllerURI(@uri).build())
       return clientFactory.createReader(SecureRandom.uuid,
 					@groupName,
-					JavaSerializer.new(),
+					UTF8StringSerializer.new(),
 					ReaderConfig.builder().build())
     end
   end
