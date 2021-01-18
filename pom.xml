@@ -10,5 +10,10 @@
       <artifactId>pravega-client</artifactId>
       <version>0.8.0</version>
     </dependency>
+    <dependency>
+      <groupId>io.pravega</groupId>
+      <artifactId>pravega-keycloak-client</artifactId>
+      <version>0.8.0</version>
+    </dependency>
   </dependencies>
 </project>
