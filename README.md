@@ -56,6 +56,10 @@ gem build logstash-input-pravega.gemspec
 ```sh
 sudo bin/logstash-plugin install logstash-input-pravega-<version>.gem
 ```
+# Add these ENVIRONMENT variables
+export pravega_client_auth_method=Bearer
+export pravega_client_auth_loadDynamic=true 
+export KEYCLOAK_SERVICE_ACCOUNT_FILE=/SOME_PATH/keycloak-demo.json
 
 - Configration
 ```
@@ -63,6 +67,8 @@ e.g.
 input {
     pravega {
       pravega_endpoint => "tcp://<host>:<port>"
+      create_scope => false
+      scope => "demo"
       stream_name => "myStream"
     }
   }

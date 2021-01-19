@@ -13,6 +13,8 @@ class LogStash::Inputs::Pravega < LogStash::Inputs::Base
   
   config :pravega_endpoint, :validate => :string, :require => true
 
+  config :create_scope, :validate => :boolean, :require => true
+
   config :stream_name, :validate => :string, :require => true
 
   config :scope, :validate => :string, :default => "global"
@@ -93,15 +95,17 @@ class LogStash::Inputs::Pravega < LogStash::Inputs::Base
       java_import("io.pravega.client.stream.ReaderGroupConfig")
       java_import("io.pravega.client.admin.ReaderGroupManager")
       java_import("io.pravega.client.stream.Stream")
+      java_import("io.pravega.keycloak.client.KeycloakAuthzClient")
 
       @uri = java.net.URI.new(pravega_endpoint)
+      @create_scope = create_scope
       clientConfig = ClientConfig.builder()
                                  .controllerURI(@uri)
-                                 .credentials(DefaultCredentials.new(password, username))
-                                 .validateHostName(false)
                                  .build()
       streamManager = StreamManager.create(clientConfig)
-      streamManager.createScope(scope)
+      if @create_scope
+              streamManager.createScope(scope)
+      end
       streamManager.createStream(scope, stream_name, StreamConfiguration.builder().build())
       readGroupConfig = ReaderGroupConfig.builder().stream(Stream.of(scope, stream_name)).build()
       @readerGroupManager = ReaderGroupManager.withScope(scope, @uri)

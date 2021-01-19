@@ -18,6 +18,8 @@ Gem::Specification.new do |s|
 
   s.requirements << "jar 'io.pravega:pravega-client', '0.8.0'"
 
+  s.requirements << "jar 'io.pravega:pravega-keycloak-client', '0.8.0'"
+
   # Gem dependencies
   s.add_runtime_dependency "logstash-core-plugin-api", ">= 1.60", "<= 2.99"
   s.add_runtime_dependency 'logstash-codec-plain', '>= 0'
