@@ -71,7 +71,6 @@ input {
       scope => "demo"
       stream_name => "myStream"
     }
-  }
 }
 ```
 ```
